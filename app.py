@@ -47,7 +47,7 @@ CONFIG_FINAL = {
 
 
 @st.cache_data(show_spinner=False)
-def cargar_datos(semilla: float) -> pd.DataFrame:
+def cargar_telemetria_flotilla(semilla: float) -> pd.DataFrame:
     return generar_datos(semilla)
 
 
@@ -224,7 +224,10 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-df = cargar_datos(semilla)
+df = cargar_telemetria_flotilla(semilla)
+if not all(col in df.columns for col in FEATURES):
+    st.cache_data.clear()
+    df = generar_datos(semilla)
 X, scaler = escalar(df)
 resultados_k = evaluar_k(X)
 

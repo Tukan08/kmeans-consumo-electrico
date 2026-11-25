@@ -96,6 +96,8 @@ def generar_datos(seed: float = 0.42) -> pd.DataFrame:
 
 
 def escalar(df: pd.DataFrame) -> tuple[np.ndarray, StandardScaler]:
+    if not all(col in df.columns for col in FEATURES):
+        df = generar_datos()
     scaler = StandardScaler()
     X = scaler.fit_transform(df[FEATURES].to_numpy())
     return X, scaler
