@@ -7,44 +7,44 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-FEATURES = ["consumo_diurno_kwh", "consumo_nocturno_kwh"]
+FEATURES = ["km_recorridos_dia", "horas_ralenti_dia"]
 
 ETIQUETAS = {
-    "consumo_diurno_kwh": "Consumo diurno (kWh)",
-    "consumo_nocturno_kwh": "Consumo nocturno (kWh)",
+    "km_recorridos_dia": "Distancia diaria (km)",
+    "horas_ralenti_dia": "Tiempo en ralentí (horas)",
 }
 
 CATEGORIAS = {
-    "eco": {
-        "nombre": "Hogares Eco-Eficientes",
-        "decision": "No requieren subsidio. Enviar reconocimiento y aplicar la tarifa preferencial base.",
+    "eficiente": {
+        "nombre": "Flotilla Urbana Eficiente",
+        "decision": "Bajo desgaste y bajo consumo innecesario. Mantener calendario regular de mantenimiento preventivo y certificar a operadores.",
     },
     "moderado": {
-        "nombre": "Hogares de Consumo Moderado",
-        "decision": "Tarifa preferencial y campaña de eficiencia energética. Reevaluar si su consumo crece.",
+        "nombre": "Operación Logística Estándar",
+        "decision": "Rendimiento balanceado. Capacitación continua en eco-driving y monitoreo bimestral de consumo de combustible.",
     },
-    "diurno": {
-        "nombre": "Consumidores Diurnos Intensivos",
-        "decision": "Candidatos ideales para el subsidio de paneles solares: su pico de demanda coincide con la radiación solar.",
+    "foraneo": {
+        "nombre": "Transporte Foráneo / Carretera",
+        "decision": "Monitoreo riguroso de neumáticos, frenos y aerodinámica. Implementar telepeaje automatizado y control de velocidad crucero.",
     },
-    "nocturno": {
-        "nombre": "Vampiros Nocturnos / Climatización",
-        "decision": "Vales para renovación de aires acondicionados, inversores y aislamiento térmico. Los paneles sin baterías no cubren su demanda nocturna.",
+    "congestion": {
+        "nombre": "Reparto en Congestión Crítica",
+        "decision": "Candidatos prioritarios para electrificación / hibridación de flota o reprogramación de ventanas horarias nocturnas para evadir tráfico.",
     },
-    "alto": {
-        "nombre": "Consumo Alto General",
-        "decision": "Auditoría energética prioritaria y paquete combinado de paneles con baterías y aislamiento térmico.",
+    "critico": {
+        "nombre": "Operación de Alta Severidad / Sobrecarga",
+        "decision": "Auditoría inmediata de rutas GPS, rotación obligatoria de operadores por fatiga y revisión mecánica exhaustiva por desgaste prematuro.",
     },
 }
 
-ORDEN_CATEGORIAS = ["eco", "moderado", "diurno", "nocturno", "alto"]
+ORDEN_CATEGORIAS = ["eficiente", "moderado", "foraneo", "congestion", "critico"]
 
 COLOR_VARIANTES = {
-    "eco": ["#10B981", "#059669", "#34D399"],
+    "eficiente": ["#10B981", "#059669", "#34D399"],
     "moderado": ["#0EA5E9", "#0284C7", "#38BDF8"],
-    "diurno": ["#F59E0B", "#D97706", "#FBBF24"],
-    "nocturno": ["#4F46E5", "#4338CA", "#818CF8"],
-    "alto": ["#EF4444", "#DC2626", "#F87171"],
+    "foraneo": ["#F59E0B", "#D97706", "#FBBF24"],
+    "congestion": ["#6366F1", "#4F46E5", "#818CF8"],
+    "critico": ["#EF4444", "#DC2626", "#F87171"],
 }
 
 NIVELES = [
@@ -61,35 +61,35 @@ def generar_datos(seed: float = 0.42) -> pd.DataFrame:
     con = duckdb.connect(database=":memory:")
     try:
         con.execute("SELECT setseed(?);", [float(seed)])
-        datos = con.execute(
+        con.execute(
             """
-            CREATE TABLE telemetria_hogares AS
+            CREATE TABLE telemetria_flotillas AS
             WITH base AS (
                 SELECT
-                    hogar_id,
+                    vehiculo_id,
                     CASE
-                        WHEN hogar_id <= 50 THEN 1
-                        WHEN hogar_id <= 100 THEN 2
-                        ELSE 3
+                        WHEN vehiculo_id <= 50 THEN 1  -- Perfil latente urbano eficiente
+                        WHEN vehiculo_id <= 100 THEN 2 -- Perfil latente foráneo larga distancia
+                        ELSE 3                         -- Perfil latente reparto urbano con alto tráfico
                     END AS grupo_oculto
-                FROM generate_series(1, 150) AS t(hogar_id)
+                FROM generate_series(1, 150) AS t(vehiculo_id)
             )
             SELECT
-                hogar_id,
+                vehiculo_id,
                 ROUND(CASE
-                    WHEN grupo_oculto = 1 THEN 80 + (random() * 60)
-                    WHEN grupo_oculto = 2 THEN 260 + (random() * 90)
-                    ELSE 110 + (random() * 70)
-                END, 2) AS consumo_diurno_kwh,
+                    WHEN grupo_oculto = 1 THEN 50 + (random() * 60)    -- 50 a 110 km
+                    WHEN grupo_oculto = 2 THEN 240 + (random() * 110)  -- 240 a 350 km
+                    ELSE 75 + (random() * 70)                          -- 75 a 145 km
+                END, 1) AS km_recorridos_dia,
                 ROUND(CASE
-                    WHEN grupo_oculto = 1 THEN 90 + (random() * 60)
-                    WHEN grupo_oculto = 2 THEN 120 + (random() * 70)
-                    ELSE 290 + (random() * 110)
-                END, 2) AS consumo_nocturno_kwh
+                    WHEN grupo_oculto = 1 THEN 0.8 + (random() * 1.2)  -- 0.8 a 2.0 hrs ralentí
+                    WHEN grupo_oculto = 2 THEN 1.0 + (random() * 1.5)  -- 1.0 a 2.5 hrs ralentí
+                    ELSE 3.8 + (random() * 2.2)                        -- 3.8 a 6.0 hrs ralentí
+                END, 2) AS horas_ralenti_dia
             FROM base
             """
         )
-        datos = con.execute("SELECT * FROM telemetria_hogares ORDER BY hogar_id").df()
+        datos = con.execute("SELECT * FROM telemetria_flotillas ORDER BY vehiculo_id").df()
     finally:
         con.close()
     return datos
@@ -134,16 +134,16 @@ def centroides_reales(modelo: KMeans, scaler: StandardScaler) -> pd.DataFrame:
     )
 
 
-def _categoria(z_diurno: float, z_nocturno: float, umbral: float = 0.25) -> str:
-    if abs(z_diurno) <= umbral and abs(z_nocturno) <= umbral:
+def _categoria(z_km: float, z_ralenti: float, umbral: float = 0.25) -> str:
+    if abs(z_km) <= umbral and abs(z_ralenti) <= umbral:
         return "moderado"
-    if z_diurno > 0 and z_nocturno > 0:
-        return "alto"
-    if z_diurno > 0:
-        return "diurno"
-    if z_nocturno > 0:
-        return "nocturno"
-    return "eco"
+    if z_km > 0 and z_ralenti > 0:
+        return "critico"
+    if z_km > 0:
+        return "foraneo"
+    if z_ralenti > 0:
+        return "congestion"
+    return "eficiente"
 
 
 def construir_perfiles(
@@ -160,28 +160,28 @@ def construir_perfiles(
 
     filas = []
     for cluster in medias.index:
-        z_diurno = float(centroides_z.loc[cluster, FEATURES[0]])
-        z_nocturno = float(centroides_z.loc[cluster, FEATURES[1]])
-        categoria = _categoria(z_diurno, z_nocturno)
+        z_km = float(centroides_z.loc[cluster, FEATURES[0]])
+        z_ralenti = float(centroides_z.loc[cluster, FEATURES[1]])
+        categoria = _categoria(z_km, z_ralenti)
         filas.append(
             {
                 "cluster": int(cluster),
                 "categoria": categoria,
                 "n": int(conteos.loc[cluster]),
                 "porcentaje": float(conteos.loc[cluster] / len(asignaciones) * 100),
-                "media_diurno": float(medias.loc[cluster, FEATURES[0]]),
-                "media_nocturno": float(medias.loc[cluster, FEATURES[1]]),
-                "z_diurno": z_diurno,
-                "z_nocturno": z_nocturno,
+                "media_km": float(medias.loc[cluster, FEATURES[0]]),
+                "media_ralenti": float(medias.loc[cluster, FEATURES[1]]),
+                "z_km": z_km,
+                "z_ralenti": z_ralenti,
             }
         )
 
     perfiles = pd.DataFrame(filas)
-    perfiles["total"] = perfiles["media_diurno"] + perfiles["media_nocturno"]
+    perfiles["total_impacto"] = perfiles["media_km"] + (perfiles["media_ralenti"] * 25.0)
     orden = {categoria: i for i, categoria in enumerate(ORDEN_CATEGORIAS)}
     perfiles["orden_categoria"] = perfiles["categoria"].map(orden)
     perfiles = perfiles.sort_values(
-        ["orden_categoria", "total"], ascending=[True, True]
+        ["orden_categoria", "total_impacto"], ascending=[True, True]
     ).reset_index(drop=True)
 
     for categoria, grupo in perfiles.groupby("categoria", sort=False):
